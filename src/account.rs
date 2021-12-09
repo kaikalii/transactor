@@ -80,7 +80,6 @@ impl Account {
             }
             Transaction::Resolution { kind, tx_id } => {
                 if self.disputed.remove(&tx_id) {
-                    // When resolving a disputed deposit, make disputed held funds available again
                     if let Some(BalanceChange {
                         kind: ChangeKind::Deposit,
                         amount,
@@ -88,12 +87,16 @@ impl Account {
                     {
                         match kind {
                             ResolutionKind::Resolve => {
+                                // When resolving a disputed deposit, make disputed held funds available again
                                 self.balance += *amount;
                                 self.held -= *amount;
                             }
                             ResolutionKind::Chargeback => {
+                                // When charging back a dispute, remove the held funds and freeze the account
                                 self.held -= *amount;
                                 self.frozen = true;
+                                // The transaction is removed from the history so it
+                                // cannot be disputed and charged back again
                                 self.history.remove(&tx_id);
                             }
                         }
