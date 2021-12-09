@@ -137,7 +137,7 @@ impl FromStr for ClientTransaction {
             let amount_str = parts.next().ok_or(TransactionParseError::MissingAmount)?;
             let amount = amount_str
                 .parse::<f64>()
-                .map_err(|_| TransactionParseError::InvalidTransactionId(amount_str.into()))?;
+                .map_err(|_| TransactionParseError::InvalidAmount(amount_str.into()))?;
             Amount::from_f64(amount)
                 .filter(|amount| amount >= &0.0)
                 .ok_or_else(|| TransactionParseError::InvalidAmount(amount_str.into()))
