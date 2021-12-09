@@ -64,53 +64,44 @@ impl Account {
                 }
                 self.history.insert(tx_id, change);
             }
-            Transaction::Dispute { kind, tx_id } => match kind {
-                DisputeKind::Initiate => {
-                    // When initiating a dispute, put disputed funds into holding
+            Transaction::Dispute(tx_id) => {
+                // When initiating a dispute, put disputed funds into holding
+                if let Some(BalanceChange {
+                    kind: ChangeKind::Deposit,
+                    amount,
+                }) = self.history.get(&tx_id)
+                {
+                    self.balance -= *amount;
+                    self.held += *amount;
+                    self.disputed.insert(tx_id);
+                } else {
+                    return Err(TransactionError::InvalidDispute(tx_id));
+                }
+            }
+            Transaction::Resolution { kind, tx_id } => {
+                if self.disputed.remove(&tx_id) {
+                    // When resolving a disputed deposit, make disputed held funds available again
                     if let Some(BalanceChange {
                         kind: ChangeKind::Deposit,
                         amount,
                     }) = self.history.get(&tx_id)
                     {
-                        self.balance -= *amount;
-                        self.held += *amount;
-                        self.disputed.insert(tx_id);
-                    } else {
-                        return Err(TransactionError::InvalidDispute);
-                    }
-                }
-                DisputeKind::Resolve => {
-                    if self.disputed.remove(&tx_id) {
-                        // When resolving a disputed deposit, make disputed held funds available again
-                        if let Some(BalanceChange {
-                            kind: ChangeKind::Deposit,
-                            amount,
-                        }) = self.history.get(&tx_id)
-                        {
-                            self.balance += *amount;
-                            self.held -= *amount;
+                        match kind {
+                            ResolutionKind::Resolve => {
+                                self.balance += *amount;
+                                self.held -= *amount;
+                            }
+                            ResolutionKind::Chargeback => {
+                                self.held -= *amount;
+                                self.frozen = true;
+                                self.history.remove(&tx_id);
+                            }
                         }
-                    } else {
-                        return Err(TransactionError::UndisputedResolve);
                     }
+                } else {
+                    return Err(TransactionError::UndisputedResolution { tx_id, kind });
                 }
-                DisputeKind::Chargeback => {
-                    if self.disputed.remove(&tx_id) {
-                        // When charging back a disputed deposit, remove the disputed held funds and freeze the account
-                        if let Some(BalanceChange {
-                            kind: ChangeKind::Deposit,
-                            amount,
-                        }) = self.history.get(&tx_id)
-                        {
-                            self.held -= *amount;
-                            self.frozen = true;
-                            self.history.remove(&tx_id);
-                        }
-                    } else {
-                        return Err(TransactionError::UndisputedChargback);
-                    }
-                }
-            },
+            }
         }
         Ok(())
     }
@@ -152,10 +143,15 @@ impl Index<ClientId> for Accounts {
 #[derive(Debug)]
 pub enum TransactionError {
     AccountFrozen,
-    InsufficentFunds { current: Amount, requested: Amount },
-    InvalidDispute,
-    UndisputedResolve,
-    UndisputedChargback,
+    InsufficentFunds {
+        current: Amount,
+        requested: Amount,
+    },
+    InvalidDispute(TransactionId),
+    UndisputedResolution {
+        tx_id: TransactionId,
+        kind: ResolutionKind,
+    },
     DuplicateTransactionId(TransactionId),
 }
 
@@ -168,12 +164,13 @@ impl fmt::Display for TransactionError {
                 "Attempted to withdraw {} from an account with {} avaiable",
                 requested, current
             ),
-            TransactionError::InvalidDispute => write!(
+            TransactionError::InvalidDispute(tx_id) => write!(
                 f,
-                "The transaction of the given id does not exist or cannot be disputed"
+                "The transaction with id {} does not exist or cannot be disputed",
+                tx_id
             ),
-            TransactionError::UndisputedResolve | TransactionError::UndisputedChargback => {
-                write!(f, "The given transaction id was never disputed")
+            TransactionError::UndisputedResolution { tx_id, .. } => {
+                write!(f, "A transaction with id {} was never disputed", tx_id)
             }
             TransactionError::DuplicateTransactionId(id) => {
                 write!(f, "Transaction id {} has already been used", id)

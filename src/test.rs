@@ -2,7 +2,7 @@ use crate::{
     account::{Account, Accounts},
     amount::Amount,
     process_transaction_source,
-    transaction::{DisputeKind, Transaction},
+    transaction::{ResolutionKind, Transaction},
 };
 
 #[test]
@@ -51,13 +51,11 @@ fn withdrawal() {
 #[test]
 fn resolve() {
     let mut account = account_with_100();
-    account
-        .transact(Transaction::dispute(DisputeKind::Initiate, 0))
-        .unwrap();
+    account.transact(Transaction::Dispute(0)).unwrap();
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 100.0);
     account
-        .transact(Transaction::dispute(DisputeKind::Resolve, 0))
+        .transact(Transaction::resolution(ResolutionKind::Resolve, 0))
         .unwrap();
     assert_eq!(account.balance(), 100.0);
     assert_eq!(account.held(), 0.0);
@@ -67,13 +65,11 @@ fn resolve() {
 #[test]
 fn chargeback() {
     let mut account = account_with_100();
-    account
-        .transact(Transaction::dispute(DisputeKind::Initiate, 0))
-        .unwrap();
+    account.transact(Transaction::Dispute(0)).unwrap();
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 100.0);
     account
-        .transact(Transaction::dispute(DisputeKind::Chargeback, 0))
+        .transact(Transaction::resolution(ResolutionKind::Chargeback, 0))
         .unwrap();
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 0.0);
@@ -83,19 +79,17 @@ fn chargeback() {
 #[test]
 fn double_chargeback() {
     let mut account = account_with_100();
-    account
-        .transact(Transaction::dispute(DisputeKind::Initiate, 0))
-        .unwrap();
+    account.transact(Transaction::Dispute(0)).unwrap();
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 100.0);
     account
-        .transact(Transaction::dispute(DisputeKind::Chargeback, 0))
+        .transact(Transaction::resolution(ResolutionKind::Chargeback, 0))
         .unwrap();
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 0.0);
     assert!(account.is_frozen());
     account
-        .transact(Transaction::dispute(DisputeKind::Chargeback, 0))
+        .transact(Transaction::resolution(ResolutionKind::Chargeback, 0))
         .unwrap_err();
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 0.0);

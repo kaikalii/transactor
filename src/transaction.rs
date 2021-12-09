@@ -28,14 +28,10 @@ pub struct BalanceChange {
     pub amount: Amount,
 }
 
-/// A transaction type for disputes
+/// A transaction type for resolving disputes
 #[derive(Debug, Clone, Copy)]
-pub enum DisputeKind {
-    /// Initiate a dispute on some transaction. Disputed funds go into holding.
-    ///
-    /// Currently, only deposits can be disputed
-    Initiate,
-    /// Resolve a dispute. Funds held by the dispute become available again.
+pub enum ResolutionKind {
+    /// Resolve a dispute by reverting it. Funds held by the dispute become available again.
     ///
     /// Does nothing if the referenced transaction id does not exist or is not a deposit
     Resolve,
@@ -53,9 +49,13 @@ pub enum Transaction {
         tx_id: TransactionId,
         change: BalanceChange,
     },
-    /// A dispute
-    Dispute {
-        kind: DisputeKind,
+    /// Initiate a dispute on some transaction. Disputed funds go into holding.
+    ///
+    /// Currently, only deposits can be disputed
+    Dispute(TransactionId),
+    /// A resolution to a dispute
+    Resolution {
+        kind: ResolutionKind,
         tx_id: TransactionId,
     },
 }
@@ -73,12 +73,12 @@ impl Transaction {
     pub const fn withdrawal(tx_id: TransactionId, amount: Amount) -> Transaction {
         Transaction::change(tx_id, ChangeKind::Withdrawal, amount)
     }
-    pub const fn dispute(kind: DisputeKind, tx_id: TransactionId) -> Transaction {
-        Transaction::Dispute { kind, tx_id }
+    pub const fn resolution(kind: ResolutionKind, tx_id: TransactionId) -> Transaction {
+        Transaction::Resolution { kind, tx_id }
     }
 }
 
-/// An error occured when attempting to parse a `ClientTransaction` from a comma-separated string
+/// An error that can occur when attempting to parse a `ClientTransaction` from a comma-separated string
 #[derive(Debug)]
 pub enum TransactionParseError {
     MissingTransactionType,
@@ -146,9 +146,9 @@ impl FromStr for ClientTransaction {
         let tx = match tx_type {
             "deposit" => Transaction::deposit(tx_id, amount()?),
             "withdrawal" => Transaction::withdrawal(tx_id, amount()?),
-            "dispute" => Transaction::dispute(DisputeKind::Initiate, tx_id),
-            "resolve" => Transaction::dispute(DisputeKind::Resolve, tx_id),
-            "chargeback" => Transaction::dispute(DisputeKind::Chargeback, tx_id),
+            "dispute" => Transaction::Dispute(tx_id),
+            "resolve" => Transaction::resolution(ResolutionKind::Resolve, tx_id),
+            "chargeback" => Transaction::resolution(ResolutionKind::Chargeback, tx_id),
             _ => {
                 return Err(TransactionParseError::InvalidTransactionType(
                     tx_type.into(),
