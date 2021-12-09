@@ -8,7 +8,7 @@ use std::{
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
 };
 
-const DECIMAL_POINT_MUL: f64 = 1000.0;
+const DECIMAL_POINT_MUL: f64 = 10_000.0;
 
 /// A fixed-point number for use in representing amounts of money
 ///
