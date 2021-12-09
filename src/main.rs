@@ -55,16 +55,18 @@ fn main() {
     }
 }
 
+/// Apply transactions parsed from a reader and apply each one to accounts
 fn process_transaction_source<R>(source: R, accounts: &mut Accounts) -> Result<(), String>
 where
     R: Read,
 {
     for (i, line) in BufReader::new(source).lines().enumerate() {
+        let line_no = i + 1;
         // Break on I/O error
         let line = match line {
             Ok(line) => line,
             Err(e) => {
-                return Err(format!("Error reading line {}: {}", i, e));
+                return Err(format!("Error reading line {}: {}", line_no, e));
             }
         };
         // Skip empty lines
@@ -73,15 +75,17 @@ where
         }
 
         // Parse transaction
-        let transaction = match line.parse::<Transaction>() {
+        let tx = match line.parse::<Transaction>() {
             Ok(tx) => tx,
             Err(e) => {
-                return Err(format!("Invalid transaction on line {}: {}", i + 1, e));
+                return Err(format!("Invalid transaction on line {}: {}", line_no, e));
             }
         };
 
         // Apply transaction
-        accounts.transact(transaction);
+        if let Err(e) = accounts.transact(tx.clone()) {
+            eprintln!("Error executing transaction on line {}: {}", line_no, e);
+        }
     }
     Ok(())
 }

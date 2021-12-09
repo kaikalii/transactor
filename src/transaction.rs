@@ -6,7 +6,7 @@ pub type ClientId = u16;
 pub type TransactionId = u32;
 
 /// A transaction to be executed on `Accounts`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Transaction {
     pub client: ClientId,
     pub id: TransactionId,
@@ -14,7 +14,7 @@ pub struct Transaction {
 }
 
 /// A type of transaction
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum TransactionType {
     /// A deposit into an account
     Deposit(Amount),

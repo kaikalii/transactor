@@ -1,5 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
+    error::Error,
+    fmt,
     ops::Index,
 };
 
@@ -37,42 +39,68 @@ impl Account {
         self.balance + self.held
     }
     /// Execute a transaction on the account
-    pub fn transact(&mut self, id: TransactionId, ty: TransactionType) {
-        match ty.clone() {
+    pub fn transact(
+        &mut self,
+        tx_id: TransactionId,
+        ty: TransactionType,
+    ) -> Result<(), TransactionError> {
+        match ty {
             TransactionType::Deposit(amount) => {
+                if self.history.contains_key(&tx_id) {
+                    return Err(TransactionError::DuplicateTransactionId(tx_id));
+                }
                 self.balance += amount;
-                self.history.insert(id, ty);
+                self.history.insert(tx_id, ty);
             }
             TransactionType::Withdrawal(amount) => {
-                if !self.frozen && self.balance >= amount {
-                    self.balance -= amount;
+                if self.history.contains_key(&tx_id) {
+                    return Err(TransactionError::DuplicateTransactionId(tx_id));
                 }
-                self.history.insert(id, ty);
+                if self.frozen {
+                    return Err(TransactionError::AccountFrozen);
+                }
+                if self.balance >= amount {
+                    self.balance -= amount;
+                    self.history.insert(tx_id, ty);
+                } else {
+                    return Err(TransactionError::InsufficentFunds {
+                        current: self.balance,
+                        requested: amount,
+                    });
+                }
             }
             TransactionType::Dispute => {
-                if let Some(TransactionType::Deposit(amount)) = self.history.get(&id) {
+                if let Some(TransactionType::Deposit(amount)) = self.history.get(&tx_id) {
                     self.balance -= *amount;
                     self.held += *amount;
-                    self.disputed.insert(id);
+                    self.disputed.insert(tx_id);
+                } else {
+                    return Err(TransactionError::InvalidDispute);
                 }
             }
             TransactionType::Resolve => {
-                if self.disputed.remove(&id) {
-                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&id) {
+                if self.disputed.remove(&tx_id) {
+                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&tx_id) {
                         self.balance += *amount;
                         self.held -= *amount;
                     }
+                } else {
+                    return Err(TransactionError::UndisputedResolve);
                 }
             }
             TransactionType::Chargeback => {
-                if self.disputed.remove(&id) {
-                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&id) {
+                if self.disputed.remove(&tx_id) {
+                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&tx_id) {
                         self.held -= *amount;
                         self.frozen = true;
+                        self.history.remove(&tx_id);
                     }
+                } else {
+                    return Err(TransactionError::UndisputedChargback);
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -84,11 +112,11 @@ pub struct Accounts {
 
 impl Accounts {
     /// Execute a transaction
-    pub fn transact(&mut self, tx: Transaction) {
+    pub fn transact(&mut self, tx: Transaction) -> Result<(), TransactionError> {
         self.accounts
             .entry(tx.client)
             .or_default()
-            .transact(tx.id, tx.ty);
+            .transact(tx.id, tx.ty)
     }
     /// Iterate over all accounts and their client ids
     pub fn iter(&self) -> impl Iterator<Item = (ClientId, &Account)> {
@@ -107,3 +135,38 @@ impl Index<ClientId> for Accounts {
             .unwrap_or_else(|| panic!("Invalid client id: {}", id))
     }
 }
+
+#[derive(Debug)]
+pub enum TransactionError {
+    AccountFrozen,
+    InsufficentFunds { current: Amount, requested: Amount },
+    InvalidDispute,
+    UndisputedResolve,
+    UndisputedChargback,
+    DuplicateTransactionId(TransactionId),
+}
+
+impl fmt::Display for TransactionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TransactionError::AccountFrozen => write!(f, "Account is frozen"),
+            TransactionError::InsufficentFunds { current, requested } => write!(
+                f,
+                "Attempted to withdraw {} from an account with {} avaiable",
+                requested, current
+            ),
+            TransactionError::InvalidDispute => write!(
+                f,
+                "The transaction of the given id does not exist or cannot be disputed"
+            ),
+            TransactionError::UndisputedResolve | TransactionError::UndisputedChargback => {
+                write!(f, "The given transaction id was never disputed")
+            }
+            TransactionError::DuplicateTransactionId(id) => {
+                write!(f, "Transaction id {} has already been used", id)
+            }
+        }
+    }
+}
+
+impl Error for TransactionError {}

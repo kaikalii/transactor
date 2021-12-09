@@ -12,3 +12,6 @@ dispute, 3, 6
 dispute, 3, 7
 resolve, 3, 6
 chargeback, 3, 7
+
+deposit, 4, 8, 100
+chargeback, 4, 8
