@@ -13,11 +13,12 @@ fn it_works() {
 
     process_transaction_source(input.as_slice(), &mut accounts).unwrap();
 
-    assert_eq!(accounts[1].total(), 20.0);
+    assert_eq!(accounts[1].total(), 18.3);
     assert_eq!(accounts[2].total(), 10.0);
     assert_eq!(accounts[3].total(), 70.0);
     assert_eq!(accounts[4].balance(), 100.0);
-    assert_eq!(accounts[4].held(), 20.0);
+    assert_eq!(accounts[4].held(), 20.6);
+    assert_eq!(accounts[4].total(), 120.6);
 }
 
 fn account_with_100() -> Account {
@@ -38,13 +39,13 @@ fn deposit() {
 fn withdrawal() {
     let mut account = account_with_100();
     account
-        .transact(Transaction::withdrawal(1, Amount::from_f64(60.0).unwrap()))
+        .transact(Transaction::withdrawal(1, Amount::from_f64(55.5).unwrap()))
         .unwrap();
-    assert_eq!(account.total(), 40.0);
+    assert_eq!(account.total(), 44.5);
     account
         .transact(Transaction::withdrawal(1, Amount::from_f64(60.0).unwrap()))
         .unwrap_err();
-    assert_eq!(account.total(), 40.0);
+    assert_eq!(account.total(), 44.5);
 }
 
 #[test]
