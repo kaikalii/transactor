@@ -1,3 +1,5 @@
+//! Types for working with client accounts
+
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -13,7 +15,7 @@ pub struct Account {
     balance: Amount,
     held: Amount,
     frozen: bool,
-    history: HashMap<TransactionId, AmountChange>,
+    history: HashMap<TransactionId, BalanceChange>,
     disputed: HashSet<TransactionId>,
 }
 
@@ -68,7 +70,7 @@ impl Account {
             Transaction::Dispute { kind, tx_id } => match kind {
                 DisputeKind::Initiate => {
                     // When initiating a dispute, put disputed funds into holding
-                    if let Some(AmountChange {
+                    if let Some(BalanceChange {
                         kind: ChangeKind::Deposit,
                         amount,
                     }) = self.history.get(&tx_id)
@@ -83,7 +85,7 @@ impl Account {
                 DisputeKind::Resolve => {
                     if self.disputed.remove(&tx_id) {
                         // When resolving a disputed deposit, make disputed held funds available again
-                        if let Some(AmountChange {
+                        if let Some(BalanceChange {
                             kind: ChangeKind::Deposit,
                             amount,
                         }) = self.history.get(&tx_id)
@@ -98,7 +100,7 @@ impl Account {
                 DisputeKind::Chargeback => {
                     if self.disputed.remove(&tx_id) {
                         // When charging back a disputed deposit, remove the disputed held funds and freeze the account
-                        if let Some(AmountChange {
+                        if let Some(BalanceChange {
                             kind: ChangeKind::Deposit,
                             amount,
                         }) = self.history.get(&tx_id)
@@ -117,7 +119,7 @@ impl Account {
     }
 }
 
-/// A collection of client accounts, indexed by client id
+/// A collection of client [`Account`]s, indexed by client id
 #[derive(Debug, Default)]
 pub struct Accounts {
     accounts: HashMap<ClientId, Account>,
@@ -149,6 +151,7 @@ impl Index<ClientId> for Accounts {
     }
 }
 
+/// An error that can occur when executing a transaction
 #[derive(Debug)]
 pub enum TransactionError {
     AccountFrozen,

@@ -1,3 +1,7 @@
+//! A type for quantifying balances
+//!
+//! See [`Amount`] for more information
+
 use std::{
     cmp::Ordering,
     fmt,
@@ -6,7 +10,10 @@ use std::{
 
 const AMOUNT_DECIMAL_PLACES: u8 = 4;
 
-/// A fixed-point amount of money
+/// A fixed-point number for use in representing amounts of money
+///
+/// This type abstracts an integer as a fixed-point number to avoid floating-point errors,
+/// which are not acceptable when dealing with money.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Amount(i64);
 

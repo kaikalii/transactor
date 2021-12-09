@@ -1,3 +1,5 @@
+//! Transaction types
+
 use std::{error::Error, fmt, str::FromStr};
 
 use crate::amount::Amount;
@@ -5,7 +7,7 @@ use crate::amount::Amount;
 pub type ClientId = u16;
 pub type TransactionId = u32;
 
-/// A transaction to be executed on `Accounts`
+/// A client-specified transaction to be executed on [`Accounts`]
 #[derive(Debug, Clone)]
 pub struct ClientTransaction {
     pub client: ClientId,
@@ -19,8 +21,9 @@ pub enum ChangeKind {
     Withdrawal,
 }
 
+/// A change to a balance
 #[derive(Debug, Clone, Copy)]
-pub struct AmountChange {
+pub struct BalanceChange {
     pub kind: ChangeKind,
     pub amount: Amount,
 }
@@ -42,13 +45,13 @@ pub enum DisputeKind {
     Chargeback,
 }
 
-/// A type of transaction
+/// A transaction to be executed on an [`Account`]
 #[derive(Debug, Clone, Copy)]
 pub enum Transaction {
     /// A deposit or withdrawal into an account
     Change {
         tx_id: TransactionId,
-        change: AmountChange,
+        change: BalanceChange,
     },
     /// A dispute
     Dispute {
@@ -61,7 +64,7 @@ impl Transaction {
     pub const fn change(tx_id: TransactionId, kind: ChangeKind, amount: Amount) -> Transaction {
         Transaction::Change {
             tx_id,
-            change: AmountChange { kind, amount },
+            change: BalanceChange { kind, amount },
         }
     }
     pub const fn deposit(tx_id: TransactionId, amount: Amount) -> Transaction {
@@ -75,6 +78,7 @@ impl Transaction {
     }
 }
 
+/// An error occured when attempting to parse a `ClientTransaction` from a comma-separated string
 #[derive(Debug)]
 pub enum TransactionParseError {
     MissingTransactionType,
@@ -112,19 +116,23 @@ impl FromStr for ClientTransaction {
     type Err = TransactionParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.split(',').map(str::trim);
-        let transaction_type = parts
+        // Get the transaction type string
+        let tx_type = parts
             .next()
             .ok_or(TransactionParseError::MissingTransactionType)?;
+        // Parse client id
         let client_id = parts.next().ok_or(TransactionParseError::MissingClientId)?;
         let client_id = client_id
             .parse::<ClientId>()
             .map_err(|_| TransactionParseError::InvalidClientId(client_id.into()))?;
+        // Parse transaction id
         let tx_id = parts
             .next()
             .ok_or(TransactionParseError::MissingTransactionId)?;
         let tx_id = tx_id
             .parse::<TransactionId>()
             .map_err(|_| TransactionParseError::InvalidTransactionId(tx_id.into()))?;
+        // Closure for getting the amount
         let mut amount = || -> Result<Amount, Self::Err> {
             let amount_str = parts.next().ok_or(TransactionParseError::MissingAmount)?;
             let amount = amount_str
@@ -134,7 +142,8 @@ impl FromStr for ClientTransaction {
                 .filter(|amount| amount >= &0.0)
                 .ok_or_else(|| TransactionParseError::InvalidAmount(amount_str.into()))
         };
-        let tx = match transaction_type {
+        // Make transaction
+        let tx = match tx_type {
             "deposit" => Transaction::deposit(tx_id, amount()?),
             "withdrawal" => Transaction::withdrawal(tx_id, amount()?),
             "dispute" => Transaction::dispute(DisputeKind::Initiate, tx_id),
@@ -142,7 +151,7 @@ impl FromStr for ClientTransaction {
             "chargeback" => Transaction::dispute(DisputeKind::Chargeback, tx_id),
             _ => {
                 return Err(TransactionParseError::InvalidTransactionType(
-                    transaction_type.into(),
+                    tx_type.into(),
                 ))
             }
         };
