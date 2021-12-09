@@ -5,6 +5,7 @@ use crate::amount::Amount;
 pub type ClientId = u16;
 pub type TransactionId = u32;
 
+/// A transaction to be executed on `Accounts`
 #[derive(Debug)]
 pub struct Transaction {
     pub client: ClientId,
@@ -12,12 +13,24 @@ pub struct Transaction {
     pub ty: TransactionType,
 }
 
-#[derive(Debug)]
+/// A type of transaction
+#[derive(Debug, Clone)]
 pub enum TransactionType {
+    /// A deposit into an account
     Deposit(Amount),
+    /// A withdrawal from an account
     Withdrawal(Amount),
+    /// A dispute on some transaction. Disputed funds go into holding.
+    ///
+    /// Currently, only deposits can be disputed
     Dispute,
+    /// Resolve a dispute. Funds held by the dispute become available again.
+    ///
+    /// Does nothing if the referenced transaction id does not exist or it is not a deposit
     Resolve,
+    /// Charge back a disputed amount. Funds held by the dispute are removed.
+    ///
+    /// Does nothing if the referenced transaction id does not exist or it is not a deposit
     Chargeback,
 }
 

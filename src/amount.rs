@@ -10,6 +10,7 @@ const AMOUNT_DECIMAL_PLACES: u8 = 4;
 pub struct Amount(i64);
 
 impl Amount {
+    /// Attempt to create an amount from an `f64`
     pub fn from_f64(amount: f64) -> Option<Self> {
         let amount_multiplied = (amount * 10f64.powf(AMOUNT_DECIMAL_PLACES as f64)).round();
         if amount_multiplied > i64::MAX as f64
@@ -21,6 +22,7 @@ impl Amount {
             Some(Amount(amount_multiplied as i64))
         }
     }
+    /// Get the amount as an `f64`
     pub fn as_f64(&self) -> f64 {
         self.0 as f64 / 10f64.powf(AMOUNT_DECIMAL_PLACES as f64)
     }

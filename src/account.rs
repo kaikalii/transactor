@@ -38,7 +38,7 @@ impl Account {
     }
     /// Execute a transaction on the account
     pub fn transact(&mut self, id: TransactionId, ty: TransactionType) {
-        match ty {
+        match ty.clone() {
             TransactionType::Deposit(amount) => {
                 self.balance += amount;
                 self.history.insert(id, ty);
@@ -50,47 +50,25 @@ impl Account {
                 self.history.insert(id, ty);
             }
             TransactionType::Dispute => {
-                if let Some(ty) = self.history.get(&id) {
-                    match ty {
-                        TransactionType::Deposit(amount) => {
-                            self.balance -= *amount;
-                            self.held += *amount;
-                            self.disputed.insert(id);
-                        }
-                        TransactionType::Withdrawal(_) => {
-                            self.disputed.insert(id);
-                        }
-                        _ => {}
-                    }
+                if let Some(TransactionType::Deposit(amount)) = self.history.get(&id) {
+                    self.balance -= *amount;
+                    self.held += *amount;
+                    self.disputed.insert(id);
                 }
             }
             TransactionType::Resolve => {
                 if self.disputed.remove(&id) {
-                    if let Some(ty) = self.history.get(&id) {
-                        match ty {
-                            TransactionType::Deposit(amount) => {
-                                self.balance += *amount;
-                                self.held -= *amount;
-                            }
-                            TransactionType::Withdrawal(_) => {}
-                            _ => {}
-                        }
+                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&id) {
+                        self.balance += *amount;
+                        self.held -= *amount;
                     }
                 }
             }
             TransactionType::Chargeback => {
                 if self.disputed.remove(&id) {
-                    if let Some(ty) = self.history.get(&id) {
-                        match ty {
-                            TransactionType::Deposit(amount) => {
-                                self.held -= *amount;
-                                self.frozen = true;
-                            }
-                            TransactionType::Withdrawal(amount) => {
-                                self.balance += *amount;
-                            }
-                            _ => {}
-                        }
+                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&id) {
+                        self.held -= *amount;
+                        self.frozen = true;
                     }
                 }
             }
