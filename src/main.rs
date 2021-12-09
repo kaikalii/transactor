@@ -63,24 +63,16 @@ where
     for (i, line) in BufReader::new(source).lines().enumerate() {
         let line_no = i + 1;
         // Break on I/O error
-        let line = match line {
-            Ok(line) => line,
-            Err(e) => {
-                return Err(format!("Error reading line {}: {}", line_no, e));
-            }
-        };
+        let line = line.map_err(|e| format!("Error reading line {}: {}", line_no, e))?;
         // Skip empty lines
         if line.trim().is_empty() {
             continue;
         }
 
         // Parse transaction
-        let tx = match line.parse::<ClientTransaction>() {
-            Ok(tx) => tx,
-            Err(e) => {
-                return Err(format!("Invalid transaction on line {}: {}", line_no, e));
-            }
-        };
+        let tx = line
+            .parse::<ClientTransaction>()
+            .map_err(|e| format!("Invalid transaction on line {}: {}", line_no, e))?;
 
         // Apply transaction
         if let Err(e) = accounts.transact(tx.clone()) {
