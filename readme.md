@@ -38,7 +38,6 @@ dispute, 4, 9
 
 ```
 client,available,held,total,locked
-client,available,held,total,locked
 1,20,0,20,false
 2,10,0,10,false
 3,70,0,70,true
