@@ -7,7 +7,7 @@ use crate::amount::Amount;
 pub type ClientId = u16;
 pub type TransactionId = u32;
 
-/// A client-specified transaction to be executed on [`Accounts`]
+/// A client-specific transaction to be executed on [`Accounts`]
 #[derive(Debug, Clone)]
 pub struct ClientTransaction {
     pub client: ClientId,
