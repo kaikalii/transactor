@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt,
     ops::{Add, AddAssign, Neg, Sub, SubAssign},
 };
@@ -69,6 +70,12 @@ impl SubAssign for Amount {
 impl PartialEq<f64> for Amount {
     fn eq(&self, other: &f64) -> bool {
         &self.as_f64() == other
+    }
+}
+
+impl PartialOrd<f64> for Amount {
+    fn partial_cmp(&self, other: &f64) -> Option<Ordering> {
+        self.as_f64().partial_cmp(other)
     }
 }
 
