@@ -12,7 +12,7 @@ use std::{
 };
 
 use account::Accounts;
-use transaction::Transaction;
+use transaction::ClientTransaction;
 
 fn main() {
     // Get the input file path
@@ -75,7 +75,7 @@ where
         }
 
         // Parse transaction
-        let tx = match line.parse::<Transaction>() {
+        let tx = match line.parse::<ClientTransaction>() {
             Ok(tx) => tx,
             Err(e) => {
                 return Err(format!("Invalid transaction on line {}: {}", line_no, e));

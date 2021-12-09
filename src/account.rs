@@ -5,10 +5,7 @@ use std::{
     ops::Index,
 };
 
-use crate::{
-    amount::Amount,
-    transaction::{ClientId, Transaction, TransactionId, TransactionType},
-};
+use crate::{amount::Amount, transaction::*};
 
 /// A client's account
 #[derive(Debug, Default)]
@@ -16,7 +13,7 @@ pub struct Account {
     balance: Amount,
     held: Amount,
     frozen: bool,
-    history: HashMap<TransactionId, TransactionType>,
+    history: HashMap<TransactionId, AmountChange>,
     disputed: HashSet<TransactionId>,
 }
 
@@ -39,66 +36,82 @@ impl Account {
         self.balance + self.held
     }
     /// Execute a transaction on the account
-    pub fn transact(
-        &mut self,
-        tx_id: TransactionId,
-        ty: TransactionType,
-    ) -> Result<(), TransactionError> {
-        match ty {
-            TransactionType::Deposit(amount) => {
+    pub fn transact(&mut self, tx: Transaction) -> Result<(), TransactionError> {
+        match tx {
+            Transaction::Change { tx_id, change } => {
                 if self.history.contains_key(&tx_id) {
                     return Err(TransactionError::DuplicateTransactionId(tx_id));
                 }
-                self.balance += amount;
-                self.history.insert(tx_id, ty);
-            }
-            TransactionType::Withdrawal(amount) => {
-                if self.history.contains_key(&tx_id) {
-                    return Err(TransactionError::DuplicateTransactionId(tx_id));
-                }
-                if self.frozen {
-                    return Err(TransactionError::AccountFrozen);
-                }
-                if self.balance >= amount {
-                    self.balance -= amount;
-                    self.history.insert(tx_id, ty);
-                } else {
-                    return Err(TransactionError::InsufficentFunds {
-                        current: self.balance,
-                        requested: amount,
-                    });
-                }
-            }
-            TransactionType::Dispute => {
-                if let Some(TransactionType::Deposit(amount)) = self.history.get(&tx_id) {
-                    self.balance -= *amount;
-                    self.held += *amount;
-                    self.disputed.insert(tx_id);
-                } else {
-                    return Err(TransactionError::InvalidDispute);
-                }
-            }
-            TransactionType::Resolve => {
-                if self.disputed.remove(&tx_id) {
-                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&tx_id) {
-                        self.balance += *amount;
-                        self.held -= *amount;
+                match change.kind {
+                    ChangeKind::Deposit => {
+                        self.balance += change.amount;
+                        self.history.insert(tx_id, change);
                     }
-                } else {
-                    return Err(TransactionError::UndisputedResolve);
-                }
-            }
-            TransactionType::Chargeback => {
-                if self.disputed.remove(&tx_id) {
-                    if let Some(TransactionType::Deposit(amount)) = self.history.get(&tx_id) {
-                        self.held -= *amount;
-                        self.frozen = true;
-                        self.history.remove(&tx_id);
+                    ChangeKind::Withdrawal => {
+                        // Prevent frozen accounts from being withdrawn from
+                        if self.frozen {
+                            return Err(TransactionError::AccountFrozen);
+                        }
+                        // Ensure the funds are available
+                        if self.balance >= change.amount {
+                            self.balance -= change.amount;
+                            self.history.insert(tx_id, change);
+                        } else {
+                            return Err(TransactionError::InsufficentFunds {
+                                current: self.balance,
+                                requested: change.amount,
+                            });
+                        }
                     }
-                } else {
-                    return Err(TransactionError::UndisputedChargback);
                 }
             }
+            Transaction::Dispute { kind, tx_id } => match kind {
+                DisputeKind::Initiate => {
+                    // When initiating a dispute, put disputed funds into holding
+                    if let Some(AmountChange {
+                        kind: ChangeKind::Deposit,
+                        amount,
+                    }) = self.history.get(&tx_id)
+                    {
+                        self.balance -= *amount;
+                        self.held += *amount;
+                        self.disputed.insert(tx_id);
+                    } else {
+                        return Err(TransactionError::InvalidDispute);
+                    }
+                }
+                DisputeKind::Resolve => {
+                    if self.disputed.remove(&tx_id) {
+                        // When resolving a disputed deposit, make disputed held funds available again
+                        if let Some(AmountChange {
+                            kind: ChangeKind::Deposit,
+                            amount,
+                        }) = self.history.get(&tx_id)
+                        {
+                            self.balance += *amount;
+                            self.held -= *amount;
+                        }
+                    } else {
+                        return Err(TransactionError::UndisputedResolve);
+                    }
+                }
+                DisputeKind::Chargeback => {
+                    if self.disputed.remove(&tx_id) {
+                        // When charging back a disputed deposit, remove the disputed held funds and freeze the account
+                        if let Some(AmountChange {
+                            kind: ChangeKind::Deposit,
+                            amount,
+                        }) = self.history.get(&tx_id)
+                        {
+                            self.held -= *amount;
+                            self.frozen = true;
+                            self.history.remove(&tx_id);
+                        }
+                    } else {
+                        return Err(TransactionError::UndisputedChargback);
+                    }
+                }
+            },
         }
         Ok(())
     }
@@ -112,11 +125,11 @@ pub struct Accounts {
 
 impl Accounts {
     /// Execute a transaction
-    pub fn transact(&mut self, tx: Transaction) -> Result<(), TransactionError> {
+    pub fn transact(&mut self, client_tx: ClientTransaction) -> Result<(), TransactionError> {
         self.accounts
-            .entry(tx.client)
+            .entry(client_tx.client)
             .or_default()
-            .transact(tx.id, tx.ty)
+            .transact(client_tx.tx)
     }
     /// Iterate over all accounts and their client ids
     pub fn iter(&self) -> impl Iterator<Item = (ClientId, &Account)> {

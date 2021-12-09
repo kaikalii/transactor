@@ -2,7 +2,7 @@ use crate::{
     account::{Account, Accounts},
     amount::Amount,
     process_transaction_source,
-    transaction::TransactionType,
+    transaction::{DisputeKind, Transaction},
 };
 
 #[test]
@@ -22,10 +22,7 @@ fn it_works() {
 fn account_with_100() -> Account {
     let mut account = Account::default();
     account
-        .transact(
-            0,
-            TransactionType::Deposit(Amount::from_f64(100.0).unwrap()),
-        )
+        .transact(Transaction::deposit(0, Amount::from_f64(100.0).unwrap()))
         .unwrap();
     account
 }
@@ -39,8 +36,65 @@ fn deposit() {
 #[test]
 fn withdrawal() {
     let mut account = account_with_100();
-    let withdraw_60 = TransactionType::Withdrawal(Amount::from_f64(60.0).unwrap());
-    account.transact(1, withdraw_60).unwrap();
-    account.transact(2, withdraw_60).unwrap_err();
+    account
+        .transact(Transaction::withdrawal(1, Amount::from_f64(60.0).unwrap()))
+        .unwrap();
     assert_eq!(account.total(), 40.0);
+    account
+        .transact(Transaction::withdrawal(1, Amount::from_f64(60.0).unwrap()))
+        .unwrap_err();
+    assert_eq!(account.total(), 40.0);
+}
+
+#[test]
+fn resolve() {
+    let mut account = account_with_100();
+    account
+        .transact(Transaction::dispute(DisputeKind::Initiate, 0))
+        .unwrap();
+    assert_eq!(account.balance(), 0.0);
+    assert_eq!(account.held(), 100.0);
+    account
+        .transact(Transaction::dispute(DisputeKind::Resolve, 0))
+        .unwrap();
+    assert_eq!(account.balance(), 100.0);
+    assert_eq!(account.held(), 0.0);
+    assert!(!account.is_frozen());
+}
+
+#[test]
+fn chargeback() {
+    let mut account = account_with_100();
+    account
+        .transact(Transaction::dispute(DisputeKind::Initiate, 0))
+        .unwrap();
+    assert_eq!(account.balance(), 0.0);
+    assert_eq!(account.held(), 100.0);
+    account
+        .transact(Transaction::dispute(DisputeKind::Chargeback, 0))
+        .unwrap();
+    assert_eq!(account.balance(), 0.0);
+    assert_eq!(account.held(), 0.0);
+    assert!(account.is_frozen());
+}
+
+#[test]
+fn double_chargeback() {
+    let mut account = account_with_100();
+    account
+        .transact(Transaction::dispute(DisputeKind::Initiate, 0))
+        .unwrap();
+    assert_eq!(account.balance(), 0.0);
+    assert_eq!(account.held(), 100.0);
+    account
+        .transact(Transaction::dispute(DisputeKind::Chargeback, 0))
+        .unwrap();
+    assert_eq!(account.balance(), 0.0);
+    assert_eq!(account.held(), 0.0);
+    assert!(account.is_frozen());
+    account
+        .transact(Transaction::dispute(DisputeKind::Chargeback, 0))
+        .unwrap_err();
+    assert_eq!(account.balance(), 0.0);
+    assert_eq!(account.held(), 0.0);
 }

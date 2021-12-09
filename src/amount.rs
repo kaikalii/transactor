@@ -1,6 +1,6 @@
 use std::{
     fmt,
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Neg, Sub, SubAssign},
 };
 
 const AMOUNT_DECIMAL_PLACES: u8 = 4;
@@ -69,5 +69,12 @@ impl SubAssign for Amount {
 impl PartialEq<f64> for Amount {
     fn eq(&self, other: &f64) -> bool {
         &self.as_f64() == other
+    }
+}
+
+impl Neg for Amount {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Amount(-self.0)
     }
 }
