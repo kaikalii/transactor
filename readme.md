@@ -15,9 +15,10 @@ There are 5 transaction types:
 
 ## Example Input
 
-Each line of the CSV file must start with the transaction type, followed by an account id and a transaction id. Deposits and withdrawals must then list a positive amount.
+Each line of the CSV file must start with the transaction type, followed by a client id and a transaction id. Deposits and withdrawals must then list a positive amount.
 
 ```
+type, client, tx, amount
 deposit, 1, 1, 20
 deposit, 2, 2, 30
 deposit, 3, 3, 50

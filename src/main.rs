@@ -64,8 +64,8 @@ where
         let line_no = i + 1;
         // Break on I/O error
         let line = line.map_err(|e| format!("Error reading line {}: {}", line_no, e))?;
-        // Skip empty lines
-        if line.trim().is_empty() {
+        // Skip empty lines or header row if it is present
+        if line.trim().is_empty() || i == 0 && line.trim().starts_with("type") {
             continue;
         }
 
