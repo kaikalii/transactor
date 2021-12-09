@@ -1,19 +1,15 @@
-deposit, 1, 1, 18.3
-deposit, 2, 2, 30
-deposit, 3, 3, 50
-
-withdrawal, 2, 4, 20
-withdrawal, 2, 5, 20
-
-deposit, 3, 6, 20
-deposit, 3, 7, 40
-
-dispute, 3, 6
-dispute, 3, 7
-resolve, 3, 6
-chargeback, 3, 7
-
-deposit, 4, 8, 100
-deposit, 4, 9, 20.6
-dispute, 4, 9
-chargeback, 4, 8
+deposit,1,1,18.3
+deposit,2,2,30
+deposit,3,3,50
+withdrawal,2,4,20
+withdrawal,2,5,20
+deposit,3,6,20
+deposit,3,7,40
+dispute,3,6,
+dispute,3,7,
+resolve,3,6,
+chargeback,3,7,
+deposit,4,8,100
+deposit,4,9,20.6
+dispute,4,9,
+chargeback,4,8,
