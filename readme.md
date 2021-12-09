@@ -30,14 +30,17 @@ dispute, 3, 7
 resolve, 3, 6
 chargeback, 3, 7
 deposit, 4, 8, 100
+deposit, 4, 9, 20
+dispute, 4, 9
 ```
 
 ## Example Output
 
 ```
 client,available,held,total,locked
+client,available,held,total,locked
 1,20,0,20,false
 2,10,0,10,false
 3,70,0,70,true
-4,100,0,100,false
+4,100,20,120,false
 ```

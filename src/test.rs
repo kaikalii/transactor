@@ -16,7 +16,8 @@ fn it_works() {
     assert_eq!(accounts[1].total(), 20.0);
     assert_eq!(accounts[2].total(), 10.0);
     assert_eq!(accounts[3].total(), 70.0);
-    assert_eq!(accounts[4].total(), 100.0);
+    assert_eq!(accounts[4].balance(), 100.0);
+    assert_eq!(accounts[4].held(), 20.0);
 }
 
 fn account_with_100() -> Account {
