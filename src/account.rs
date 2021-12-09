@@ -45,10 +45,7 @@ impl Account {
                     return Err(TransactionError::DuplicateTransactionId(tx_id));
                 }
                 match change.kind {
-                    ChangeKind::Deposit => {
-                        self.balance += change.amount;
-                        self.history.insert(tx_id, change);
-                    }
+                    ChangeKind::Deposit => self.balance += change.amount,
                     ChangeKind::Withdrawal => {
                         // Prevent frozen accounts from being withdrawn from
                         if self.frozen {
@@ -57,7 +54,6 @@ impl Account {
                         // Ensure the funds are available
                         if self.balance >= change.amount {
                             self.balance -= change.amount;
-                            self.history.insert(tx_id, change);
                         } else {
                             return Err(TransactionError::InsufficentFunds {
                                 current: self.balance,
@@ -66,6 +62,7 @@ impl Account {
                         }
                     }
                 }
+                self.history.insert(tx_id, change);
             }
             Transaction::Dispute { kind, tx_id } => match kind {
                 DisputeKind::Initiate => {
