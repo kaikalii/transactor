@@ -100,3 +100,22 @@ fn double_chargeback() {
     assert_eq!(account.balance(), 0.0);
     assert_eq!(account.held(), 0.0);
 }
+
+#[test]
+fn amount_reliability() {
+    // Float arithmetic can accumulate errors
+    let mut i = 0.0;
+    let delta = 0.3;
+    i += delta;
+    i += delta;
+    i += delta;
+    assert_ne!(i, 0.9);
+
+    // Amount arithmetic cannot
+    let mut i = Amount::from_f64(0.0).unwrap();
+    let delta = Amount::from_f64(0.3).unwrap();
+    i += delta;
+    i += delta;
+    i += delta;
+    assert_eq!(i, 0.9);
+}
